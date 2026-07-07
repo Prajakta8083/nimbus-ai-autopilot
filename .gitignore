@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.pyc
+venv/
+.venv/
+.DS_Store
+
+# Shell history / OS files - never commit these
+.bash_history
+.bash_logout
+.bashrc
+.profile
+.sudo_as_admin_successful

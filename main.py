@@ -1,42 +1,80 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
 import os
-import google.generativeai as genai
-from sqlalchemy import create_engine, text
+from typing import List
 
-app = FastAPI()
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
-# ------------------ DB CONNECTION ------------------
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_HOST = os.getenv("DB_HOST")
-DB_NAME = os.getenv("DB_NAME")
-DB_PORT = os.getenv("DB_PORT", "5432")
+from ai_service import summarize_text, extract_tasks, plan_day
 
-DATABASE_URL = f"postgresql+pg8000://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-engine = create_engine(DATABASE_URL)
+app = FastAPI(title="Nimbus AI AutoPilot", version="1.0.0")
 
-# ------------------ GEMINI ------------------
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-model = genai.GenerativeModel("gemini-2.0-flash")
+# ---- In-memory task store (Lite Version - no external DB) ----
+task_store: List[str] = []
 
-class TextIn(BaseModel):
+
+class TextRequest(BaseModel):
     text: str
 
+
+class TasksRequest(BaseModel):
+    tasks: List[str]
+
+
+class TaskItem(BaseModel):
+    task: str
+
+
 @app.get("/")
-def home():
-    return {"status": "Nimbus AI Mini Backend Running"}
+def health_check():
+    """Basic backend status check."""
+    return {"status": "ok", "service": "nimbus-ai-autopilot"}
+
 
 @app.get("/test-db")
 def test_db():
-    try:
-        with engine.connect() as conn:
-            result = conn.execute(text("SELECT 1"))
-            return {"db_status": "connected", "result": result.scalar()}
-    except Exception as e:
-        return {"db_status": "error", "detail": str(e)}
+    """Lite version: no real DB connection, always reports connected."""
+    return {"db_status": "connected", "mode": "in-memory"}
 
-@app.post("/summarize")
-def summarize(payload: TextIn):
-    result = model.generate_content(f"Summarize this:\n\n{payload.text}")
-    return {"summary": result.text}
+
+@app.post("/ai/summarize")
+def summarize(request: TextRequest):
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
+    try:
+        summary = summarize_text(request.text)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Gemini API error: {e}")
+    return {"summary": summary}
+
+
+@app.post("/ai/extract-tasks")
+def extract(request: TextRequest):
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
+    try:
+        tasks = extract_tasks(request.text)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Gemini API error: {e}")
+    return {"tasks": tasks}
+
+
+@app.post("/ai/plan-day")
+def plan(request: TasksRequest):
+    if not request.tasks:
+        raise HTTPException(status_code=400, detail="Tasks list cannot be empty")
+    try:
+        result = plan_day(request.tasks)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Gemini API error: {e}")
+    return {"plan": result}
+
+
+@app.post("/add-task")
+def add_task(item: TaskItem):
+    task_store.append(item.task)
+    return {"message": "Task added", "total_tasks": len(task_store)}
+
+
+@app.get("/get-tasks")
+def get_tasks():
+    return {"tasks": task_store}
