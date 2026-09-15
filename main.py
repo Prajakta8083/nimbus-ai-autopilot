@@ -2,11 +2,20 @@ import os
 from typing import List
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from ai_service import summarize_text, extract_tasks, plan_day
 
 app = FastAPI(title="Nimbus AI AutoPilot", version="1.0.0")
+
+# Allow the frontend (running on a different port/file) to call this API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # fine for local dev; restrict this in real production
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ---- In-memory task store (Lite Version - no external DB) ----
 task_store: List[str] = []
