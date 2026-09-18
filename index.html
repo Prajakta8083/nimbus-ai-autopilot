@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nimbus AI AutoPilot</title>
+<style>
+  :root {
+    --sky-deep: #0d1b2a;
+    --sky-mid: #1b3a5c;
+    --cloud-white: #eef3f8;
+    --accent: #5fb4e5;
+    --accent-soft: #a8d8f0;
+    --text-dim: #9db4c7;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(180deg, var(--sky-deep) 0%, var(--sky-mid) 100%);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--cloud-white);
+    padding: 40px 20px 80px;
+  }
+
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  header .eyebrow {
+    font-size: 13px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-soft);
+    margin-bottom: 8px;
+  }
+
+  header h1 {
+    font-size: 32px;
+    margin: 0 0 8px;
+    font-weight: 600;
+  }
+
+  header p {
+    color: var(--text-dim);
+    margin: 0;
+    font-size: 15px;
+  }
+
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 14px;
+    padding: 6px 14px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #6b7d8f;
+  }
+  .dot.online { background: #4ade80; box-shadow: 0 0 8px #4ade8080; }
+  .dot.offline { background: #ef4444; }
+
+  .card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    background: rgba(0,0,0,0.2);
+    padding: 4px;
+    border-radius: 12px;
+  }
+
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px 12px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-dim);
+    transition: all 0.15s ease;
+    user-select: none;
+  }
+
+  .tab.active {
+    background: var(--accent);
+    color: var(--sky-deep);
+    font-weight: 600;
+  }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  label {
+    display: block;
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  textarea, input[type="text"] {
+    width: 100%;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 14px;
+    color: var(--cloud-white);
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+    min-height: 110px;
+  }
+
+  input[type="text"] { min-height: unset; }
+
+  textarea:focus, input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .task-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .task-row input { flex: 1; }
+
+  .icon-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: var(--cloud-white);
+    border-radius: 8px;
+    width: 40px;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  .icon-btn:hover { background: rgba(255,255,255,0.15); }
+
+  .btn-primary {
+    margin-top: 16px;
+    width: 100%;
+    background: var(--accent);
+    color: var(--sky-deep);
+    border: none;
+    border-radius: 10px;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-secondary {
+    margin-top: 8px;
+    width: 100%;
+    background: transparent;
+    color: var(--accent-soft);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 10px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .btn-secondary:hover { background: rgba(255,255,255,0.05); }
+
+  .result {
+    margin-top: 20px;
+    padding: 18px;
+    background: rgba(0,0,0,0.25);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    display: none;
+  }
+  .result.show { display: block; }
+  .result.error {
+    border-left-color: #ef4444;
+    color: #fca5a5;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(13,27,42,0.3);
+    border-top-color: var(--sky-deep);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  footer {
+    text-align: center;
+    margin-top: 30px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  footer code {
+    background: rgba(0,0,0,0.3);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="eyebrow">Gmail → Smart Daily Planner</div>
+      <h1>☁ Nimbus AI AutoPilot</h1>
+      <p>Summarize text, extract tasks, and plan your day with Gemini.</p>
+      <div class="status">
+        <span class="dot" id="statusDot"></span>
+        <span id="statusText">Checking backend…</span>
+      </div>
+    </header>
+
+    <div class="card">
+      <div class="tabs">
+        <div class="tab active" data-tab="summarize">Summarize</div>
+        <div class="tab" data-tab="extract">Extract Tasks</div>
+        <div class="tab" data-tab="plan">Plan Day</div>
+      </div>
+
+      <!-- Summarize -->
+      <div class="panel active" id="panel-summarize">
+        <label for="summarizeInput">Paste an email, note, or article</label>
+        <textarea id="summarizeInput" placeholder="Paste text here..."></textarea>
+        <button class="btn-primary" onclick="callSummarize()">Summarize</button>
+        <div class="result" id="result-summarize"></div>
+      </div>
+
+      <!-- Extract Tasks -->
+      <div class="panel" id="panel-extract">
+        <label for="extractInput">Paste text to pull tasks from</label>
+        <textarea id="extractInput" placeholder="e.g. Reminder: submit the report by Friday, also call the plumber and buy groceries tomorrow."></textarea>
+        <button class="btn-primary" onclick="callExtract()">Extract Tasks</button>
+        <div class="result" id="result-extract"></div>
+      </div>
+
+      <!-- Plan Day -->
+      <div class="panel" id="panel-plan">
+        <label>Your tasks for today</label>
+        <div id="taskRows">
+          <div class="task-row">
+            <input type="text" placeholder="e.g. Finish assignment" />
+            <button class="icon-btn" onclick="removeTaskRow(this)">✕</button>
+          </div>
+        </div>
+        <button class="btn-secondary" onclick="addTaskRow()">+ Add another task</button>
+        <button class="btn-primary" onclick="callPlan()">Generate Plan</button>
+        <div class="result" id="result-plan"></div>
+      </div>
+    </div>
+
+    <footer>
+      Backend expected at <code id="backendUrlLabel">https://nimbus-ai-autopilot-pegmglzdy-prajaktazanzane3-9289s-projects.vercel.app/</code>
+    </footer>
+  </div>
+
+<script>
+  const BACKEND_URL = "";
+  document.getElementById("backendUrlLabel").textContent = BACKEND_URL;
+
+  // ---- Tab switching ----
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+      tab.classList.add("active");
+      document.getElementById("panel-" + tab.dataset.tab).classList.add("active");
+    });
+  });
+
+  // ---- Backend health check ----
+  async function checkBackend() {
+    const dot = document.getElementById("statusDot");
+    const text = document.getElementById("statusText");
+    try {
+      const res = await fetch(BACKEND_URL + "/");
+      if (res.ok) {
+        dot.classList.add("online");
+        text.textContent = "Backend connected";
+      } else {
+        throw new Error("Bad response");
+      }
+    } catch (e) {
+      dot.classList.add("offline");
+      text.textContent = "Backend not reachable — is uvicorn running?";
+    }
+  }
+  checkBackend();
+
+  // ---- Helpers ----
+  function showResult(id, content, isError = false) {
+    const el = document.getElementById(id);
+    el.classList.add("show");
+    el.classList.toggle("error", isError);
+    el.textContent = content;
+  }
+
+  function setLoading(button, loading, label) {
+    button.disabled = loading;
+    button.innerHTML = loading ? `<span class="spinner"></span>Working…` : label;
+  }
+
+  // ---- Summarize ----
+  async function callSummarize() {
+    const btn = event.target;
+    const text = document.getElementById("summarizeInput").value.trim();
+    if (!text) return showResult("result-summarize", "Please paste some text first.", true);
+
+    setLoading(btn, true);
+    try {
+      const res = await fetch(BACKEND_URL + "/ai/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Request failed");
+      showResult("result-summarize", data.summary);
+    } catch (e) {
+      showResult("result-summarize", "Error: " + e.message, true);
+    }
+    setLoading(btn, false, "Summarize");
+  }
+
+  // ---- Extract Tasks ----
+  async function callExtract() {
+    const btn = event.target;
+    const text = document.getElementById("extractInput").value.trim();
+    if (!text) return showResult("result-extract", "Please paste some text first.", true);
+
+    setLoading(btn, true);
+    try {
+      const res = await fetch(BACKEND_URL + "/ai/extract-tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Request failed");
+      const tasks = data.tasks || [];
+      showResult("result-extract", tasks.length ? tasks.map(t => "• " + t).join("\n") : "No tasks found.");
+    } catch (e) {
+      showResult("result-extract", "Error: " + e.message, true);
+    }
+    setLoading(btn, false, "Extract Tasks");
+  }
+
+  // ---- Plan Day (dynamic task rows) ----
+  function addTaskRow() {
+    const wrap = document.createElement("div");
+    wrap.className = "task-row";
+    wrap.innerHTML = `<input type="text" placeholder="e.g. Buy groceries" />
+                       <button class="icon-btn" onclick="removeTaskRow(this)">✕</button>`;
+    document.getElementById("taskRows").appendChild(wrap);
+  }
+
+  function removeTaskRow(button) {
+    const rows = document.querySelectorAll(".task-row");
+    if (rows.length > 1) button.parentElement.remove();
+  }
+
+  async function callPlan() {
+    const btn = event.target;
+    const tasks = Array.from(document.querySelectorAll("#taskRows input"))
+      .map(i => i.value.trim())
+      .filter(Boolean);
+
+    if (tasks.length === 0) return showResult("result-plan", "Add at least one task first.", true);
+
+    setLoading(btn, true);
+    try {
+      const res = await fetch(BACKEND_URL + "/ai/plan-day", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tasks })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Request failed");
+      showResult("result-plan", data.plan);
+    } catch (e) {
+      showResult("result-plan", "Error: " + e.message, true);
+    }
+    setLoading(btn, false, "Generate Plan");
+  }
+</script>
+</body>
+</html>
