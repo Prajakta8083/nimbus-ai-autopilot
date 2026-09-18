@@ -4,6 +4,7 @@ from typing import List
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from fastapi.responses import FileResponse
 
 from ai_service import summarize_text, extract_tasks, plan_day
 
@@ -31,12 +32,6 @@ class TasksRequest(BaseModel):
 
 class TaskItem(BaseModel):
     task: str
-
-
-@app.get("/")
-def health_check():
-    """Basic backend status check."""
-    return {"status": "ok", "service": "nimbus-ai-autopilot"}
 
 
 @app.get("/test-db")
@@ -87,3 +82,8 @@ def add_task(item: TaskItem):
 @app.get("/get-tasks")
 def get_tasks():
     return {"tasks": task_store}
+
+
+@app.get("/")
+def home():
+    return FileResponse("index.html")
